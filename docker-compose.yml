@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  django:
+    container_name: django
+    build: ./django
+    restart: always
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "if [ ! -d "/app/<アプリ名>" ];then django-admin startproject <アプリ名>; fi && cd <アプリ名> && python3 manage.py migrate --no-input && gunicorn <アプリ名>.wsgi:application --bind 0.0.0.0:8000"
+    networks:
+      - backend_network
+    volumes:
+      - ./django_app:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    restart: always
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
+    networks:
+      - backend_network
+    volumes:
+      - "./data:/var/lib/mysql"
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: myrootpass
+      MYSQL_DATABASE: <アプリ名>_db
+      MYSQL_USER: django_user
+      MYSQL_PASSWORD: djangopass
+    
+  back_nginx:
+    container_name: back_nginx
+    restart: on-failure
+    image: nginx:latest
+    volumes:
+      - ./back_nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./uploads:/app/uploads
+    ports:
+      - "8080:80"
+    depends_on:
+      - django
+    networks:
+      - backend_network
+
+  react:
+    container_name: react
+    restart: always
+    build: ./react
+    ports:
+      - "3000:3000"
+    command: >
+      sh -c "if [ ! -d "/app/<アプリ名>-app" ];then create-react-app <アプリ名>-app; fi && cd <アプリ名>-app && npm start"
+    volumes:
+      - ./react_app:/app/<アプリ名>-app
+    networks:
+      - frontend_network
+
+  front_nginx:
+    container_name: front_nginx
+    restart: on-failure
+    image: nginx:latest
+    volumes:
+      - ./front_nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./uploads:/app/uploads
+    ports:
+      - "8081:80"
+    depends_on:
+      - react
+    networks:
+      - frontend_network
+
+networks:
+  backend_network:
+    driver: bridge
+  frontend_network:
+    driver: bridge
