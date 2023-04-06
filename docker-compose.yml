@@ -53,8 +53,9 @@ services:
     build: ./react
     ports:
       - "3000:3000"
-    command: >
-      sh -c "if [ ! -d "/app/<アプリ名>-app" ];then create-react-app <アプリ名>-app; fi && cd <アプリ名>-app && npm start"
+    tty: true
+    entrypoint: >
+      bash -c "echo 1 && bash build_react.sh <アプリ名>"
     volumes:
       - ./react_app:/app/<アプリ名>-app
     networks:
